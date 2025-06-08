@@ -11,8 +11,8 @@ export async function POST(request: NextRequest) {
     // Validate inputs
     if (!pop_size || !max_iter || pop_size < 10 || max_iter < 50) {
       return NextResponse.json(
-        { error: "Invalid parameters. Population size must be >= 10 and max iterations >= 50" },
-        { status: 400 },
+          { error: "Invalid parameters. Population size must be >= 10 and max iterations >= 50" },
+          { status: 400 },
       )
     }
 
@@ -36,12 +36,12 @@ export async function POST(request: NextRequest) {
 
     // Run the Python script
     const pythonProcess = spawn(
-      "python3",
-      [outputScriptPath, "--pop_size", pop_size.toString(), "--max_iter", max_iter.toString()],
-      {
-        cwd: outputDir,
-        stdio: ["pipe", "pipe", "pipe"],
-      },
+        "python3",
+        [outputScriptPath, "--pop_size", pop_size.toString(), "--max_iter", max_iter.toString()],
+        {
+          cwd: outputDir,
+          stdio: ["pipe", "pipe", "pipe"],
+        },
     )
 
     let stdout = ""
@@ -68,12 +68,14 @@ export async function POST(request: NextRequest) {
 
     // Read the power_vs_iteration.csv file
     const csvPath = path.join(outputDir, "power_vs_iteration.csv")
+    const summaryPath = path.join(outputDir, "summary_metrics.csv")
 
     if (!fs.existsSync(csvPath)) {
       return NextResponse.json({ error: "Results file not found" }, { status: 500 })
     }
 
     const results = await readCSV(csvPath)
+    const summary = fs.existsSync(summaryPath) ? await readCSV(summaryPath) : []
 
     // Clean up temporary files
     setTimeout(() => {
@@ -84,6 +86,7 @@ export async function POST(request: NextRequest) {
       success: true,
       simulationId,
       results,
+      summary,
       stdout,
     })
   } catch (error) {
@@ -96,9 +99,9 @@ async function readCSV(filePath: string): Promise<any[]> {
   return new Promise((resolve, reject) => {
     const results: any[] = []
     fs.createReadStream(filePath)
-      .pipe(csv())
-      .on("data", (data) => results.push(data))
-      .on("end", () => resolve(results))
-      .on("error", reject)
+        .pipe(csv())
+        .on("data", (data) => results.push(data))
+        .on("end", () => resolve(results))
+        .on("error", reject)
   })
 }

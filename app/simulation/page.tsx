@@ -25,6 +25,10 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 const algorithms = [
   { value: "Hippopotamus", label: "Hippopotamus", color: "rgb(59, 130, 246)" },
+  { value: "Sobol-Hippopotamus", label: "Sobol-Hippopotamus", color: "rgb(16, 185, 129)" },
+  { value: "Halton-Hippopotamus", label: "Halton-Hippopotamus", color: "rgb(245, 158, 11)" },
+  { value: "TLBO", label: "TLBO", color: "rgb(220, 20, 60)" },
+  { value: "Genetic Alg", label: "Genetic Alg", color: "rgb(0, 128, 0)" },
   { value: "PSO", label: "PSO", color: "rgb(147, 51, 234)" },
   { value: "ABC", label: "ABC", color: "rgb(139, 69, 19)" },
   { value: "SA", label: "SA", color: "rgb(107, 114, 128)" },
@@ -38,8 +42,6 @@ const algorithms = [
   { value: "HEM", label: "HEM", color: "rgb(25, 25, 112)" },
   { value: "WSO", label: "WSO", color: "rgb(34, 139, 34)" },
   { value: "DE", label: "DE", color: "rgb(139, 69, 19)" },
-  { value: "TLBO", label: "TLBO", color: "rgb(220, 20, 60)" },
-  { value: "Genetic Alg", label: "Genetic Alg", color: "rgb(0, 128, 0)" },
 ]
 
 function createGradient(ctx: CanvasRenderingContext2D, color: string) {
@@ -54,8 +56,9 @@ export default function SimulationPage() {
   const [progress, setProgress] = useState(0)
   const [iterations, setIterations] = useState([100])
   const [populationSize, setPopulationSize] = useState([30])
-  const [selectedAlgorithms, setSelectedAlgorithms] = useState<string[]>(["Hippopotamus", "PSO", "ABC"])
+  const [selectedAlgorithms, setSelectedAlgorithms] = useState<string[]>(["Hippopotamus", "Sobol-Hippopotamus", "PSO"])
   const [simulationResults, setSimulationResults] = useState<any>(null)
+  const [summaryResults, setSummaryResults] = useState<any>(null)
   const [animationProgress, setAnimationProgress] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
   const animationRef = useRef<NodeJS.Timeout>()
@@ -68,6 +71,7 @@ export default function SimulationPage() {
     setIsRunning(true)
     setProgress(0)
     setSimulationResults(null)
+    setSummaryResults(null)
 
     try {
       const response = await fetch("/api/run-simulation", {
@@ -87,6 +91,7 @@ export default function SimulationPage() {
 
       const data = await response.json()
       setSimulationResults(data.results)
+      setSummaryResults(data.summary)
       setProgress(100)
 
       // Start animation
@@ -136,6 +141,7 @@ export default function SimulationPage() {
     setIsRunning(false)
     setProgress(0)
     setSimulationResults(null)
+    setSummaryResults(null)
     setAnimationProgress(0)
     setIsAnimating(false)
     if (animationRef.current) {
@@ -215,7 +221,7 @@ export default function SimulationPage() {
     const finalIteration = simulationResults[simulationResults.length - 1]
     const popSizes = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 
-    const datasets = selectedAlgorithms.slice(0, 3).map((algorithm) => {
+    const datasets = selectedAlgorithms.map((algorithm) => {
       const algorithmData = algorithms.find((a) => a.value === algorithm)
       const basePower = Number.parseFloat(finalIteration[algorithm]) || 0
 
@@ -279,6 +285,34 @@ export default function SimulationPage() {
         pointHoverRadius: 12,
       },
     ]
+
+    return { datasets }
+  }
+
+  const getScatterPlot4Data = () => {
+    if (!simulationResults || !summaryResults || summaryResults.length === 0) return null
+
+    // Power vs Voltage using actual data from summary CSV
+    const datasets = selectedAlgorithms
+        .map((algorithm) => {
+          const algorithmData = algorithms.find((a) => a.value === algorithm)
+          const summaryData = summaryResults.find((row: any) => row.Algorithm === algorithm)
+
+          if (!summaryData) return null
+
+          const voltage = Number.parseFloat(summaryData["Best Voltage (V)"]) || 0
+          const power = Number.parseFloat(summaryData["Best Power (W)"]) || 0
+
+          return {
+            label: algorithm,
+            data: [{ x: voltage, y: power }],
+            backgroundColor: algorithmData?.color || "rgb(75, 192, 192)",
+            borderColor: algorithmData?.color || "rgb(75, 192, 192)",
+            pointRadius: 8,
+            pointHoverRadius: 10,
+          }
+        })
+        .filter(Boolean)
 
     return { datasets }
   }
@@ -465,12 +499,76 @@ export default function SimulationPage() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: "top" as const },
-      title: { display: true, text: "Population Size vs Final Power Output" },
+      legend: {
+        position: "top" as const,
+        labels: {
+          usePointStyle: true,
+          boxWidth: 10,
+          padding: 20,
+          font: {
+            size: 12,
+          },
+        },
+      },
+      title: {
+        display: true,
+        text: "Population Size vs Final Power Output",
+        font: {
+          size: 16,
+          weight: "bold",
+        },
+        padding: {
+          top: 10,
+          bottom: 20,
+        },
+      },
+      tooltip: {
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        titleColor: "#333",
+        bodyColor: "#666",
+        borderColor: "#ddd",
+        borderWidth: 1,
+        padding: 12,
+        usePointStyle: true,
+      },
     },
     scales: {
-      x: { display: true, title: { display: true, text: "Population Size" } },
-      y: { display: true, title: { display: true, text: "Final Power Output (W)" } },
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: "Population Size",
+          font: {
+            size: 14,
+            weight: "bold",
+          },
+          padding: {
+            top: 10,
+          },
+        },
+        grid: {
+          display: true,
+          color: "rgba(0, 0, 0, 0.05)",
+        },
+      },
+      y: {
+        display: true,
+        title: {
+          display: true,
+          text: "Final Power Output (W)",
+          font: {
+            size: 14,
+            weight: "bold",
+          },
+          padding: {
+            bottom: 10,
+          },
+        },
+        grid: {
+          display: true,
+          color: "rgba(0, 0, 0, 0.05)",
+        },
+      },
     },
   }
 
@@ -479,8 +577,26 @@ export default function SimulationPage() {
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      title: { display: true, text: "Algorithm Performance Matrix" },
+      title: {
+        display: true,
+        text: "Algorithm Performance Matrix",
+        font: {
+          size: 16,
+          weight: "bold",
+        },
+        padding: {
+          top: 10,
+          bottom: 20,
+        },
+      },
       tooltip: {
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        titleColor: "#333",
+        bodyColor: "#666",
+        borderColor: "#ddd",
+        borderWidth: 1,
+        padding: 12,
+        usePointStyle: true,
         callbacks: {
           label: (context: any) => {
             const point = context.raw
@@ -490,8 +606,125 @@ export default function SimulationPage() {
       },
     },
     scales: {
-      x: { display: true, title: { display: true, text: "Average Improvement Rate (W/iteration)" } },
-      y: { display: true, title: { display: true, text: "Final Power Output (W)" } },
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: "Average Improvement Rate (W/iteration)",
+          font: {
+            size: 14,
+            weight: "bold",
+          },
+          padding: {
+            top: 10,
+          },
+        },
+        grid: {
+          display: true,
+          color: "rgba(0, 0, 0, 0.05)",
+        },
+      },
+      y: {
+        display: true,
+        title: {
+          display: true,
+          text: "Final Power Output (W)",
+          font: {
+            size: 14,
+            weight: "bold",
+          },
+          padding: {
+            bottom: 10,
+          },
+        },
+        grid: {
+          display: true,
+          color: "rgba(0, 0, 0, 0.05)",
+        },
+      },
+    },
+  }
+
+  const scatterOptions4 = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "top" as const,
+        labels: {
+          usePointStyle: true,
+          boxWidth: 10,
+          padding: 20,
+          font: {
+            size: 12,
+          },
+        },
+      },
+      title: {
+        display: true,
+        text: "Power Output vs Optimal Voltage",
+        font: {
+          size: 16,
+          weight: "bold",
+        },
+        padding: {
+          top: 10,
+          bottom: 20,
+        },
+      },
+      tooltip: {
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        titleColor: "#333",
+        bodyColor: "#666",
+        borderColor: "#ddd",
+        borderWidth: 1,
+        padding: 12,
+        usePointStyle: true,
+        callbacks: {
+          label: (context: any) =>
+              `${context.dataset.label}: (${context.parsed.x.toFixed(2)}V, ${context.parsed.y.toFixed(2)}W)`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: "Optimal Voltage (V)",
+          font: {
+            size: 14,
+            weight: "bold",
+          },
+          padding: {
+            top: 10,
+          },
+        },
+        grid: {
+          display: true,
+          color: "rgba(0, 0, 0, 0.05)",
+        },
+        min: 0,
+        max: 100,
+      },
+      y: {
+        display: true,
+        title: {
+          display: true,
+          text: "Power Output (W)",
+          font: {
+            size: 14,
+            weight: "bold",
+          },
+          padding: {
+            bottom: 10,
+          },
+        },
+        grid: {
+          display: true,
+          color: "rgba(0, 0, 0, 0.05)",
+        },
+      },
     },
   }
 
@@ -501,15 +734,12 @@ export default function SimulationPage() {
     )
   }
 
-  // Now let's restructure the layout to make the graphs larger and more prominent
-  // Replace the entire return statement with this new layout
-
   return (
       <div className="min-h-screen bg-gray-50 py-8 px-4">
         <div className="container mx-auto max-w-7xl">
           <div className="text-center mb-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Algorithm Simulation</h1>
-            <p className="text-gray-600">Sobol-Halton Sequence Hippopotamus Optimization (SHS-HO) for PV Systems</p>
+            <p className="text-gray-600">18 MPPT Algorithms for Photovoltaic System Optimization</p>
           </div>
 
           {/* Main Content Area */}
@@ -565,7 +795,7 @@ export default function SimulationPage() {
                   ) : (
                       <div className="space-y-4">
                         {/* Scatter Plot Navigation */}
-                        <div className="flex justify-center gap-2">
+                        <div className="flex justify-center gap-2 flex-wrap">
                           <Button
                               variant={activeScatterPlot === 0 ? "default" : "outline"}
                               size="sm"
@@ -587,6 +817,13 @@ export default function SimulationPage() {
                           >
                             Performance Matrix
                           </Button>
+                          <Button
+                              variant={activeScatterPlot === 3 ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setActiveScatterPlot(3)}
+                          >
+                            Power vs Voltage
+                          </Button>
                         </div>
 
                         {/* Scatter Plot Display */}
@@ -601,6 +838,9 @@ export default function SimulationPage() {
                                 )}
                                 {activeScatterPlot === 2 && getScatterPlot3Data() && (
                                     <Scatter data={getScatterPlot3Data()!} options={scatterOptions3} />
+                                )}
+                                {activeScatterPlot === 3 && getScatterPlot4Data() && (
+                                    <Scatter data={getScatterPlot4Data()!} options={scatterOptions4} />
                                 )}
                               </>
                           ) : (
@@ -627,7 +867,8 @@ export default function SimulationPage() {
                               {activeScatterPlot === 1 && (
                                   <p>
                                     <strong>Population Analysis:</strong> Demonstrates how population size affects final power
-                                    output for the top 3 selected algorithms. Shows optimal population size ranges.
+                                    output for all selected algorithms. Shows optimal population size ranges and scaling
+                                    behavior.
                                   </p>
                               )}
                               {activeScatterPlot === 2 && (
@@ -635,6 +876,13 @@ export default function SimulationPage() {
                                     <strong>Performance Matrix:</strong> Compares algorithms based on improvement rate vs final
                                     power. Top-right quadrant represents superior algorithms (high improvement rate and high
                                     final power).
+                                  </p>
+                              )}
+                              {activeScatterPlot === 3 && (
+                                  <p>
+                                    <strong>Power vs Voltage:</strong> Shows the actual optimal voltage and power output
+                                    achieved by each algorithm from the simulation results. This represents real MPPT
+                                    performance data rather than theoretical calculations.
                                   </p>
                               )}
                             </div>
@@ -724,7 +972,7 @@ export default function SimulationPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Select Algorithms:</Label>
+                    <Label>Select Algorithms ({selectedAlgorithms.length}/18):</Label>
                     <div className="max-h-48 overflow-y-auto space-y-2 border rounded-md p-2">
                       {algorithms.map((algorithm) => (
                           <div key={algorithm.value} className="flex items-center space-x-2">
@@ -784,6 +1032,7 @@ export default function SimulationPage() {
                         <li>Irradiance: 800 W/m²</li>
                         <li>Temperature: 25°C</li>
                         <li>Panel Type: Monocrystalline</li>
+                        <li>V_oc: 100V, I_sc: 10A</li>
                       </ul>
                     </div>
                   </div>
