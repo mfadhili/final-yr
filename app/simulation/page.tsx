@@ -17,10 +17,11 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js"
 import { Line, Scatter } from "react-chartjs-2"
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
 const algorithms = [
   { value: "Hippopotamus", label: "Hippopotamus", color: "rgb(59, 130, 246)" },
@@ -40,6 +41,13 @@ const algorithms = [
   { value: "TLBO", label: "TLBO", color: "rgb(220, 20, 60)" },
   { value: "Genetic Alg", label: "Genetic Alg", color: "rgb(0, 128, 0)" },
 ]
+
+function createGradient(ctx: CanvasRenderingContext2D, color: string) {
+  const gradient = ctx.createLinearGradient(0, 0, 0, 400)
+  gradient.addColorStop(0, color.replace(")", ", 0.6)").replace("rgb", "rgba"))
+  gradient.addColorStop(1, color.replace(")", ", 0.1)").replace("rgb", "rgba"))
+  return gradient
+}
 
 export default function SimulationPage() {
   const [isRunning, setIsRunning] = useState(false)
@@ -141,16 +149,22 @@ export default function SimulationPage() {
     const maxIteration = isAnimating ? animationProgress : iterations[0]
     const filteredData = simulationResults.slice(0, maxIteration)
 
+    const ctx = document.getElementById("convergence-chart")?.getContext("2d")
+
     const datasets = selectedAlgorithms.map((algorithm) => {
       const algorithmData = algorithms.find((a) => a.value === algorithm)
+      const color = algorithmData?.color || "rgb(75, 192, 192)"
+
       return {
         label: algorithm,
         data: filteredData.map((row: any) => Number.parseFloat(row[algorithm]) || 0),
-        borderColor: algorithmData?.color || "rgb(75, 192, 192)",
-        backgroundColor: algorithmData?.color || "rgb(75, 192, 192)",
-        tension: 0.1,
-        pointRadius: 2,
-        pointHoverRadius: 4,
+        borderColor: color,
+        backgroundColor: ctx ? createGradient(ctx, color) : color,
+        borderWidth: 2,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        fill: true,
       }
     })
 
@@ -275,10 +289,44 @@ export default function SimulationPage() {
     plugins: {
       legend: {
         position: "top" as const,
+        labels: {
+          usePointStyle: true,
+          boxWidth: 10,
+          padding: 20,
+          font: {
+            size: 12,
+          },
+        },
       },
       title: {
         display: true,
         text: "Power Output Convergence",
+        font: {
+          size: 16,
+          weight: "bold",
+        },
+        padding: {
+          top: 10,
+          bottom: 20,
+        },
+      },
+      tooltip: {
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        titleColor: "#333",
+        bodyColor: "#666",
+        borderColor: "#ddd",
+        borderWidth: 1,
+        padding: 12,
+        boxPadding: 6,
+        usePointStyle: true,
+        callbacks: {
+          title: (tooltipItems: any) => {
+            return `Iteration ${tooltipItems[0].label}`
+          },
+          label: (context: any) => {
+            return `  ${context.dataset.label}: ${context.parsed.y.toFixed(2)}W`
+          },
+        },
       },
     },
     scales: {
@@ -287,6 +335,20 @@ export default function SimulationPage() {
         title: {
           display: true,
           text: "Iteration",
+          font: {
+            size: 14,
+            weight: "bold",
+          },
+          padding: {
+            top: 10,
+          },
+        },
+        grid: {
+          display: true,
+          color: "rgba(0, 0, 0, 0.05)",
+        },
+        ticks: {
+          maxRotation: 0,
         },
       },
       y: {
@@ -294,11 +356,27 @@ export default function SimulationPage() {
         title: {
           display: true,
           text: "Power Output (W)",
+          font: {
+            size: 14,
+            weight: "bold",
+          },
+          padding: {
+            bottom: 10,
+          },
+        },
+        grid: {
+          display: true,
+          color: "rgba(0, 0, 0, 0.05)",
         },
       },
     },
     animation: {
       duration: 0, // Disable chart.js animation since we're controlling it manually
+    },
+    elements: {
+      line: {
+        borderJoinStyle: "round",
+      },
     },
   }
 
@@ -306,9 +384,37 @@ export default function SimulationPage() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: "top" as const },
-      title: { display: true, text: "Final Power Output vs Convergence Speed" },
+      legend: {
+        position: "top" as const,
+        labels: {
+          usePointStyle: true,
+          boxWidth: 10,
+          padding: 20,
+          font: {
+            size: 12,
+          },
+        },
+      },
+      title: {
+        display: true,
+        text: "Final Power Output vs Convergence Speed",
+        font: {
+          size: 16,
+          weight: "bold",
+        },
+        padding: {
+          top: 10,
+          bottom: 20,
+        },
+      },
       tooltip: {
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        titleColor: "#333",
+        bodyColor: "#666",
+        borderColor: "#ddd",
+        borderWidth: 1,
+        padding: 12,
+        usePointStyle: true,
         callbacks: {
           label: (context: any) =>
               `${context.dataset.label}: (${context.parsed.x} iterations, ${context.parsed.y.toFixed(2)}W)`,
@@ -316,8 +422,42 @@ export default function SimulationPage() {
       },
     },
     scales: {
-      x: { display: true, title: { display: true, text: "Convergence Speed (Iterations to 95%)" } },
-      y: { display: true, title: { display: true, text: "Final Power Output (W)" } },
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: "Convergence Speed (Iterations to 95%)",
+          font: {
+            size: 14,
+            weight: "bold",
+          },
+          padding: {
+            top: 10,
+          },
+        },
+        grid: {
+          display: true,
+          color: "rgba(0, 0, 0, 0.05)",
+        },
+      },
+      y: {
+        display: true,
+        title: {
+          display: true,
+          text: "Final Power Output (W)",
+          font: {
+            size: 14,
+            weight: "bold",
+          },
+          padding: {
+            bottom: 10,
+          },
+        },
+        grid: {
+          display: true,
+          color: "rgba(0, 0, 0, 0.05)",
+        },
+      },
     },
   }
 
@@ -361,26 +501,202 @@ export default function SimulationPage() {
     )
   }
 
+  // Now let's restructure the layout to make the graphs larger and more prominent
+  // Replace the entire return statement with this new layout
+
   return (
-      <div className="min-h-screen bg-gray-50 py-12 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Algorithm Simulation</h1>
-            <p className="text-xl text-gray-600">
-              Configure and run the Sobol-Halton Sequence Hippopotamus Optimization (SHS-HO)
-            </p>
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="container mx-auto max-w-7xl">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Algorithm Simulation</h1>
+            <p className="text-gray-600">Sobol-Halton Sequence Hippopotamus Optimization (SHS-HO) for PV Systems</p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Configuration Panel */}
-            <div className="lg:col-span-1">
-              <Card>
-                <CardHeader>
+          {/* Main Content Area */}
+          <div className="grid lg:grid-cols-4 gap-6">
+            {/* Visualization - Now the main and larger section */}
+            <div className="lg:col-span-3 space-y-6">
+              {/* Main Visualization Card */}
+              <Card className="shadow-md">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <TrendingUp className="mr-2 h-5 w-5" />
+                    Algorithm Visualization
+                  </span>
+                    <div className="flex gap-2">
+                      <Button
+                          variant={!showScatterPlots ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setShowScatterPlots(false)}
+                      >
+                        Line Chart
+                      </Button>
+                      <Button
+                          variant={showScatterPlots ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setShowScatterPlots(true)}
+                      >
+                        Scatter Plots
+                      </Button>
+                    </div>
+                  </CardTitle>
+                  <CardDescription>
+                    {!showScatterPlots
+                        ? "Real-time convergence curve showing power output over iterations"
+                        : "Statistical analysis through scatter plot visualizations"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {!showScatterPlots ? (
+                      <div className="h-[500px] w-full bg-white rounded-lg p-4">
+                        {simulationResults && getChartData() ? (
+                            <Line id="convergence-chart" data={getChartData()!} options={chartOptions} />
+                        ) : (
+                            <div className="h-full bg-gray-50 rounded-lg flex items-center justify-center">
+                              <div className="text-center text-gray-500">
+                                <TrendingUp className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                                <p className="text-lg font-medium mb-2">Convergence chart will appear here</p>
+                                <p className="text-sm">Select algorithms and start simulation to view results</p>
+                              </div>
+                            </div>
+                        )}
+                      </div>
+                  ) : (
+                      <div className="space-y-4">
+                        {/* Scatter Plot Navigation */}
+                        <div className="flex justify-center gap-2">
+                          <Button
+                              variant={activeScatterPlot === 0 ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setActiveScatterPlot(0)}
+                          >
+                            Power vs Speed
+                          </Button>
+                          <Button
+                              variant={activeScatterPlot === 1 ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setActiveScatterPlot(1)}
+                          >
+                            Population Analysis
+                          </Button>
+                          <Button
+                              variant={activeScatterPlot === 2 ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setActiveScatterPlot(2)}
+                          >
+                            Performance Matrix
+                          </Button>
+                        </div>
+
+                        {/* Scatter Plot Display */}
+                        <div className="h-[500px] w-full bg-white rounded-lg p-4">
+                          {simulationResults ? (
+                              <>
+                                {activeScatterPlot === 0 && getScatterPlot1Data() && (
+                                    <Scatter data={getScatterPlot1Data()!} options={scatterOptions1} />
+                                )}
+                                {activeScatterPlot === 1 && getScatterPlot2Data() && (
+                                    <Scatter data={getScatterPlot2Data()!} options={scatterOptions2} />
+                                )}
+                                {activeScatterPlot === 2 && getScatterPlot3Data() && (
+                                    <Scatter data={getScatterPlot3Data()!} options={scatterOptions3} />
+                                )}
+                              </>
+                          ) : (
+                              <div className="h-full bg-gray-50 rounded-lg flex items-center justify-center">
+                                <div className="text-center text-gray-500">
+                                  <TrendingUp className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                                  <p className="text-lg font-medium mb-2">Scatter plots will appear here</p>
+                                  <p className="text-sm">Run simulation to view statistical analysis</p>
+                                </div>
+                              </div>
+                          )}
+                        </div>
+
+                        {/* Scatter Plot Descriptions */}
+                        {simulationResults && (
+                            <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
+                              {activeScatterPlot === 0 && (
+                                  <p>
+                                    <strong>Power vs Speed:</strong> Shows the relationship between final power output and
+                                    convergence speed (iterations to reach 95% of final power). Algorithms in the top-left are
+                                    ideal (high power, fast convergence).
+                                  </p>
+                              )}
+                              {activeScatterPlot === 1 && (
+                                  <p>
+                                    <strong>Population Analysis:</strong> Demonstrates how population size affects final power
+                                    output for the top 3 selected algorithms. Shows optimal population size ranges.
+                                  </p>
+                              )}
+                              {activeScatterPlot === 2 && (
+                                  <p>
+                                    <strong>Performance Matrix:</strong> Compares algorithms based on improvement rate vs final
+                                    power. Top-right quadrant represents superior algorithms (high improvement rate and high
+                                    final power).
+                                  </p>
+                              )}
+                            </div>
+                        )}
+                      </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Status Card - Now below the main visualization */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <TrendingUp className="mr-2 h-5 w-5" />
+                    Simulation Status
+                  </span>
+                    <Badge variant={isRunning ? "default" : isAnimating ? "secondary" : "outline"}>
+                      {isRunning ? "Running" : isAnimating ? "Animating" : "Idle"}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="text-center p-3 bg-blue-50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">{animationProgress}</div>
+                      <div className="text-sm text-gray-600">Current Iteration</div>
+                    </div>
+                    <div className="text-center p-3 bg-green-50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">{iterations[0]}</div>
+                      <div className="text-sm text-gray-600">Max Iterations</div>
+                    </div>
+                    <div className="text-center p-3 bg-purple-50 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600">{populationSize[0]}</div>
+                      <div className="text-sm text-gray-600">Population Size</div>
+                    </div>
+                    <div className="text-center p-3 bg-orange-50 rounded-lg">
+                      <div className="text-2xl font-bold text-orange-600">{selectedAlgorithms.length}</div>
+                      <div className="text-sm text-gray-600">Algorithms</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Progress</span>
+                      <span>{Math.round(progress)}%</span>
+                    </div>
+                    <Progress value={progress} className="w-full" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Configuration Panel - Now on the right side */}
+            <div className="lg:col-span-1 space-y-6">
+              <Card className="shadow-md">
+                <CardHeader className="pb-2">
                   <CardTitle className="flex items-center">
                     <Settings className="mr-2 h-5 w-5" />
                     Configuration
                   </CardTitle>
-                  <CardDescription>Set algorithm parameters and select algorithms to compare</CardDescription>
+                  <CardDescription>Set parameters and select algorithms</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
@@ -408,7 +724,7 @@ export default function SimulationPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Select Algorithms to Compare:</Label>
+                    <Label>Select Algorithms:</Label>
                     <div className="max-h-48 overflow-y-auto space-y-2 border rounded-md p-2">
                       {algorithms.map((algorithm) => (
                           <div key={algorithm.value} className="flex items-center space-x-2">
@@ -447,204 +763,28 @@ export default function SimulationPage() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
 
-            {/* Simulation Display */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Status Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center">
-                    <TrendingUp className="mr-2 h-5 w-5" />
-                    Simulation Status
-                  </span>
-                    <Badge variant={isRunning ? "default" : isAnimating ? "secondary" : "outline"}>
-                      {isRunning ? "Running" : isAnimating ? "Animating" : "Idle"}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-3 bg-blue-50 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">{animationProgress}</div>
-                      <div className="text-sm text-gray-600">Current Iteration</div>
-                    </div>
-                    <div className="text-center p-3 bg-green-50 rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">{iterations[0]}</div>
-                      <div className="text-sm text-gray-600">Max Iterations</div>
-                    </div>
-                    <div className="text-center p-3 bg-purple-50 rounded-lg">
-                      <div className="text-2xl font-bold text-purple-600">{populationSize[0]}</div>
-                      <div className="text-sm text-gray-600">Population Size</div>
-                    </div>
-                    <div className="text-center p-3 bg-orange-50 rounded-lg">
-                      <div className="text-2xl font-bold text-orange-600">{selectedAlgorithms.length}</div>
-                      <div className="text-sm text-gray-600">Algorithms</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Progress</span>
-                      <span>{Math.round(progress)}%</span>
-                    </div>
-                    <Progress value={progress} className="w-full" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Visualization */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Algorithm Visualization</span>
-                    <div className="flex gap-2">
-                      <Button
-                          variant={!showScatterPlots ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setShowScatterPlots(false)}
-                      >
-                        Line Chart
-                      </Button>
-                      <Button
-                          variant={showScatterPlots ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setShowScatterPlots(true)}
-                      >
-                        Scatter Plots
-                      </Button>
-                    </div>
-                  </CardTitle>
-                  <CardDescription>
-                    {!showScatterPlots
-                        ? "Real-time convergence curve showing power output over iterations"
-                        : "Statistical analysis through scatter plot visualizations"}
-                  </CardDescription>
+              {/* Algorithm Info Card */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle>Selected Algorithms</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {!showScatterPlots ? (
-                      <div className="h-96 w-full">
-                        {simulationResults && getChartData() ? (
-                            <Line data={getChartData()!} options={chartOptions} />
-                        ) : (
-                            <div className="h-full bg-gray-100 rounded-lg flex items-center justify-center">
-                              <div className="text-center text-gray-500">
-                                <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                                <p>Convergence chart will appear here during simulation</p>
-                                <p className="text-sm">Select algorithms and start simulation to view</p>
-                              </div>
-                            </div>
-                        )}
-                      </div>
-                  ) : (
-                      <div className="space-y-4">
-                        {/* Scatter Plot Navigation */}
-                        <div className="flex justify-center gap-2">
-                          <Button
-                              variant={activeScatterPlot === 0 ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setActiveScatterPlot(0)}
-                          >
-                            Power vs Speed
-                          </Button>
-                          <Button
-                              variant={activeScatterPlot === 1 ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setActiveScatterPlot(1)}
-                          >
-                            Population Analysis
-                          </Button>
-                          <Button
-                              variant={activeScatterPlot === 2 ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setActiveScatterPlot(2)}
-                          >
-                            Performance Matrix
-                          </Button>
-                        </div>
-
-                        {/* Scatter Plot Display */}
-                        <div className="h-96 w-full">
-                          {simulationResults ? (
-                              <>
-                                {activeScatterPlot === 0 && getScatterPlot1Data() && (
-                                    <Scatter data={getScatterPlot1Data()!} options={scatterOptions1} />
-                                )}
-                                {activeScatterPlot === 1 && getScatterPlot2Data() && (
-                                    <Scatter data={getScatterPlot2Data()!} options={scatterOptions2} />
-                                )}
-                                {activeScatterPlot === 2 && getScatterPlot3Data() && (
-                                    <Scatter data={getScatterPlot3Data()!} options={scatterOptions3} />
-                                )}
-                              </>
-                          ) : (
-                              <div className="h-full bg-gray-100 rounded-lg flex items-center justify-center">
-                                <div className="text-center text-gray-500">
-                                  <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                                  <p>Scatter plots will appear here after simulation</p>
-                                  <p className="text-sm">Run simulation to view statistical analysis</p>
-                                </div>
-                              </div>
-                          )}
-                        </div>
-
-                        {/* Scatter Plot Descriptions */}
-                        {simulationResults && (
-                            <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                              {activeScatterPlot === 0 && (
-                                  <p>
-                                    <strong>Power vs Speed:</strong> Shows the relationship between final power output and
-                                    convergence speed (iterations to reach 95% of final power). Algorithms in the top-left are
-                                    ideal (high power, fast convergence).
-                                  </p>
-                              )}
-                              {activeScatterPlot === 1 && (
-                                  <p>
-                                    <strong>Population Analysis:</strong> Demonstrates how population size affects final power
-                                    output for the top 3 selected algorithms. Shows optimal population size ranges.
-                                  </p>
-                              )}
-                              {activeScatterPlot === 2 && (
-                                  <p>
-                                    <strong>Performance Matrix:</strong> Compares algorithms based on improvement rate vs final
-                                    power. Top-right quadrant represents superior algorithms (high improvement rate and high
-                                    final power).
-                                  </p>
-                              )}
-                            </div>
-                        )}
-                      </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Algorithm Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Algorithm Information</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <h4 className="font-semibold mb-2">Current Configuration:</h4>
+                  <div className="space-y-4 text-sm">
+                    <div className="flex flex-wrap gap-1">
+                      {selectedAlgorithms.map((algorithm) => (
+                          <Badge key={algorithm} variant="secondary" className="text-xs">
+                            {algorithm}
+                          </Badge>
+                      ))}
+                    </div>
+                    <div className="pt-2 border-t">
+                      <h4 className="font-semibold mb-2">Environment Settings:</h4>
                       <ul className="space-y-1 text-gray-600">
-                        <li>Population Size: {populationSize[0]} individuals</li>
-                        <li>Max Iterations: {iterations[0]}</li>
-                        <li>Selected Algorithms: {selectedAlgorithms.length}</li>
                         <li>Irradiance: 800 W/m²</li>
                         <li>Temperature: 25°C</li>
+                        <li>Panel Type: Monocrystalline</li>
                       </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold mb-2">Selected Algorithms:</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedAlgorithms.map((algorithm) => (
-                            <Badge key={algorithm} variant="secondary" className="text-xs">
-                              {algorithm}
-                            </Badge>
-                        ))}
-                      </div>
                     </div>
                   </div>
                 </CardContent>
